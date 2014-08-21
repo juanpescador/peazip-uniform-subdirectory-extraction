@@ -43526,6 +43526,7 @@ var
    i:integer;
    s,fun_neutral:utf8string;
    okfile:boolean;
+   Paused:boolean;
 begin
 openstarted:=true;
 stayopen:=true;
@@ -43659,6 +43660,11 @@ case paramstr(1) of
    end;
    '-ext2folder' :
    begin
+   Paused := True;
+   while Paused do
+   begin
+      sleep(100);
+   end;
    Form_peach.Windowstate:=wsMinimized;
    Form_peach.Visible:=false;
    launchwithsemaphore:=true;
