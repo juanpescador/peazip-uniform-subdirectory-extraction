@@ -29636,11 +29636,51 @@ begin
       end;
 end;
 
+// Determines whether the output directory from the archive extraction contains
+// an intermediate directory, i.e. the output directory only contains one
+// directory.
+
+// Returns true if extraction_output_dir only contains one directory.
+function hasintermediatedirectory(extraction_output_dir:utf8string): boolean;
+var
+   SR: TSearchRec;
+   ItemCount: integer;
+   DirectoryCount: integer;
+begin
+ItemCount := 0;
+DirectoryCount := 0;
+if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
+   begin
+   repeat
+   Inc(ItemCount, 1);
+   if (SR.Attr = faDirectory) then
+      begin
+      Inc(DirectoryCount, 1);
+      end;
+   until FindNext(SR) <> 0;
+   FindClose(SR);
+   end;
+// Take current directory (".") and parent directory ("..") into account when
+// counting total items and directories.
+Result := ((ItemCount = 3) and (DirectoryCount = 3));
+end;
+
+procedure movecontent1levelup(extraction_output_dir:utf8string);
+var
+   DummyVar: integer;
+begin
+     exit;
+end;
+
 procedure ext2here(tooption,folderoption:utf8string); //directly extract archive's content in archive's folder
 var
    i:integer;
    out_param,in_param:utf8string;
    nf:boolean;
+   intermediatedirtest_target: utf8string;
+   // Used to delete the temporary directory created when determining the final
+   // output directory for the archive in "new folder" mode.
+   SR: TSearchRec;
    label 1;
 begin
 if paramcount<2 then
@@ -29697,10 +29737,28 @@ for i:=2 to paramcount do
    if folderoption='newfolder' then
       begin
       Form_peach.CheckBoxFolder.State:=cbChecked;
+      intermediatedirtest_target := out_param;
+      // Get the final output folder. This creates an empty directory, delete
+      // it immediately after.
+      set_output_folder(intermediatedirtest_target,in_param,true,0);
+      if (FindFirst(intermediatedirtest_target + '\*', faAnyFile, SR) = 0) then
+         begin
+         RemoveDir(intermediatedirtest_target);
+         FindClose(SR);
+         end;
       end;
    if out_param<>'' then if out_param[length(out_param)]<>directoryseparator then out_param:=out_param+directoryseparator;
    //end determination of out_param
    directextractfromname(in_param,out_param);
+   // Check for intermediate directory and move content up a level if necessary
+   // in newfolder mode.
+   if folderoption = 'newfolder' then
+      begin
+      if (hasintermediatedirectory(intermediatedirtest_target)) then
+         begin
+         movecontent1levelup(intermediatedirtest_target);
+         end;
+      end;
    1:
    end;
 if nf=true then Form_peach.CheckBoxFolder.State:=cbChecked else Form_peach.CheckBoxFolder.State:=cbUnChecked;
