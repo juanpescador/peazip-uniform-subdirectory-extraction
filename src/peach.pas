@@ -29657,7 +29657,7 @@ if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
       begin
       Inc(DirectoryCount, 1);
       end;
-   until FindNext(SR) <> 0;
+   until (FindNext(SR) <> 0) or (ItemCount > 3);
    FindClose(SR);
    end;
 // Take current directory (".") and parent directory ("..") into account when
@@ -29668,8 +29668,42 @@ end;
 procedure movecontent1levelup(extraction_output_dir:utf8string);
 var
    DummyVar: integer;
+   SR, SR_intermediatedir: TSearchRec;
 begin
-     exit;
+if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
+   begin
+   try
+   repeat
+   if (SR.Attr and faDirectory) = faDirectory then
+      begin
+      if (SR.Name <> '.') and (SR.Name <> '..') then
+         begin
+         // Move each item in the intermediate directory up one level by renaming
+         // to a path that doesn't include the intermediate directory.
+         if (FindFirst(extraction_output_dir + SR.Name + DirectorySeparator + '*.*', faAnyFile, SR_intermediatedir) = 0) then
+            begin
+            try
+            repeat
+            begin
+            if (SR_intermediatedir.Name <> '.') and (SR_intermediatedir.Name <> '..') then
+               begin
+               RenameFile(extraction_output_dir + SR.Name + DirectorySeparator + SR_intermediatedir.Name, extraction_output_dir + SR_intermediatedir.Name);
+               end;
+            end;
+            until FindNext(SR_intermediatedir) <> 0;
+            finally
+              FindClose(SR_intermediatedir);
+            end;
+            // Delete the empty intermediate directory.
+            RemoveDir(extraction_output_dir + SR.Name);
+            end;
+         end;
+      end;
+   until FindNext(SR) <> 0;
+   finally
+     FindClose(SR);
+   end;
+   end;
 end;
 
 procedure ext2here(tooption,folderoption:utf8string); //directly extract archive's content in archive's folder
