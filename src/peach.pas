@@ -29636,11 +29636,14 @@ begin
       end;
 end;
 
-// Determines whether the output directory from the archive extraction contains
-// an intermediate directory, i.e. the output directory only contains one
-// directory.
-
-// Returns true if extraction_output_dir only contains one directory.
+/// <summary>Determines whether the output directory from the archive extraction
+/// contains an intermediate directory, i.e. the output directory only contains
+/// one directory.</summary>
+/// <param name="extraction_output_dir">The extraction output directory to check
+/// </param>
+/// <returns>True if extraction_output_dir only contains one directory, False
+/// otherwise.
+/// </returns>
 function hasintermediatedirectory(extraction_output_dir:utf8string): boolean;
 var
    SR: TSearchRec;
@@ -29665,6 +29668,11 @@ if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
 Result := ((ItemCount = 3) and (DirectoryCount = 3));
 end;
 
+/// <summary>Moves an intermediate directory's contents up a level and delets
+/// the intermediate directory.</summary>
+/// <param name="extraction_output_dir">The extraction output directory that
+/// contains an intermediate directory.
+/// </param>
 procedure movecontent1levelup(extraction_output_dir:utf8string);
 var
    DummyVar: integer;
