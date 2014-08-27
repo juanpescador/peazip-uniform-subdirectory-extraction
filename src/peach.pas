@@ -29654,6 +29654,7 @@ ItemCount := 0;
 DirectoryCount := 0;
 if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
    begin
+   try
    repeat
    Inc(ItemCount, 1);
    if (SR.Attr = faDirectory) then
@@ -29661,7 +29662,10 @@ if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
       Inc(DirectoryCount, 1);
       end;
    until (FindNext(SR) <> 0) or (ItemCount > 3);
+
+   finally
    FindClose(SR);
+   end;
    end;
 // Take current directory (".") and parent directory ("..") into account when
 // counting total items and directories.
