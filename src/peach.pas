@@ -29636,23 +29636,63 @@ begin
       end;
 end;
 
+/// <summary>Implementing this interface allows for post-extraction tasks that
+/// need information or configuration in pre-extraction steps to be encapsulated
+/// and executed once the extraction (run in its own thread) is complete.
+/// </summary>
+type
+IPostExtractionCallback = interface
+procedure Execute;
+end;
+
+TIntermediateDirectoryNormalizer = class(TInterfacedObject,
+                                         IPostExtractionCallback)
+private
+  FExtractionOutputDir: utf8string;
+  function HasIntermediateDirectory: boolean;
+  procedure MoveContentOneLevelUp;
+public
+  constructor Create;
+  destructor Destroy; override;
+  procedure Execute;
+  property ExtractionOutputDir: utf8string read FextractionOutputDir write FExtractionOutputDir;
+end;
+
+constructor TIntermediateDirectoryNormalizer.Create;
+begin
+  inherited Create;
+end;
+
+destructor TIntermediateDirectoryNormalizer.Destroy;
+begin
+  inherited Destroy;
+end;
+
+procedure TIntermediateDirectoryNormalizer.Execute;
+begin
+if (HasIntermediateDirectory) then
+   begin
+   MoveContentOneLevelUp;
+   end;
+end;
+
 /// <summary>Determines whether the output directory from the archive extraction
 /// contains an intermediate directory, i.e. the output directory only contains
 /// one directory.</summary>
-/// <param name="extraction_output_dir">The extraction output directory to check
+/// <param name="ExtractionOutputDir">The extraction output directory to check
 /// </param>
-/// <returns>True if extraction_output_dir only contains one directory, False
+/// <returns>True if ExtractionOutputDir only contains one directory, False
 /// otherwise.
 /// </returns>
-function hasintermediatedirectory(extraction_output_dir:utf8string): boolean;
+function TIntermediateDirectoryNormalizer.HasIntermediateDirectory: boolean;
 var
    SR: TSearchRec;
-   ItemCount: integer;
-   DirectoryCount: integer;
+   ItemCount: Integer;
+   DirectoryCount: Integer;
 begin
 ItemCount := 0;
 DirectoryCount := 0;
-if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
+if (FindFirst(ExtractionOutputDir + '*.*', faAnyFile, SR) = 0) then
    begin
    try
    repeat
@@ -29674,15 +29714,14 @@ end;
 
 /// <summary>Moves an intermediate directory's contents up a level and delets
 /// the intermediate directory.</summary>
-/// <param name="extraction_output_dir">The extraction output directory that
+/// <param name="ExtractionOutputDir">The extraction output directory that
 /// contains an intermediate directory.
 /// </param>
-procedure movecontent1levelup(extraction_output_dir:utf8string);
+procedure TIntermediateDirectoryNormalizer.MoveContentOneLevelUp;
 var
-   DummyVar: integer;
    SR, SR_intermediatedir: TSearchRec;
 begin
-if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
+if (FindFirst(ExtractionOutputDir + '*.*', faAnyFile, SR) = 0) then
    begin
    try
    repeat
@@ -29692,14 +29731,14 @@ if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
          begin
          // Move each item in the intermediate directory up one level by renaming
          // to a path that doesn't include the intermediate directory.
-         if (FindFirst(extraction_output_dir + SR.Name + DirectorySeparator + '*.*', faAnyFile, SR_intermediatedir) = 0) then
+         if (FindFirst(ExtractionOutputDir + SR.Name + DirectorySeparator + '*.*', faAnyFile, SR_intermediatedir) = 0) then
             begin
             try
             repeat
             begin
             if (SR_intermediatedir.Name <> '.') and (SR_intermediatedir.Name <> '..') then
                begin
-               RenameFile(extraction_output_dir + SR.Name + DirectorySeparator + SR_intermediatedir.Name, extraction_output_dir + SR_intermediatedir.Name);
+               RenameFile(ExtractionOutputDir + SR.Name + DirectorySeparator + SR_intermediatedir.Name, ExtractionOutputDir + SR_intermediatedir.Name);
                end;
             end;
             until FindNext(SR_intermediatedir) <> 0;
@@ -29707,7 +29746,7 @@ if (FindFirst(extraction_output_dir + '*.*', faAnyFile, SR) = 0) then
               FindClose(SR_intermediatedir);
             end;
             // Delete the empty intermediate directory.
-            RemoveDir(extraction_output_dir + SR.Name);
+            RemoveDir(ExtractionOutputDir + SR.Name);
             end;
          end;
       end;
@@ -29727,6 +29766,7 @@ var
    // Used to delete the temporary directory created when determining the final
    // output directory for the archive in "new folder" mode.
    SR: TSearchRec;
+   IDNormalizer: TIntermediateDirectoryNormalizer;
    label 1;
 begin
 if paramcount<2 then
@@ -29783,6 +29823,7 @@ for i:=2 to paramcount do
    if folderoption='newfolder' then
       begin
       Form_peach.CheckBoxFolder.State:=cbChecked;
+      IDNormalizer := TIntermediateDirectoryNormalizer.Create;
       intermediatedirtest_target := out_param;
       // Get the final output folder. This creates an empty directory, delete
       // it immediately after.
@@ -29792,6 +29833,7 @@ for i:=2 to paramcount do
          RemoveDir(intermediatedirtest_target);
          FindClose(SR);
          end;
+      IDNormalizer.ExtractionOutputDir := intermediatedirtest_target;
       end;
    if out_param<>'' then if out_param[length(out_param)]<>directoryseparator then out_param:=out_param+directoryseparator;
    //end determination of out_param
@@ -29800,10 +29842,7 @@ for i:=2 to paramcount do
    // in newfolder mode.
    if folderoption = 'newfolder' then
       begin
-      if (hasintermediatedirectory(intermediatedirtest_target)) then
-         begin
-         movecontent1levelup(intermediatedirtest_target);
-         end;
+      IDNormalizer.Execute;
       end;
    1:
    end;
