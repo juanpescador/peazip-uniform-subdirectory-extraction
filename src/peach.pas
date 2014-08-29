@@ -27889,7 +27889,16 @@ case i of
    end;
 end;
 
-procedure launch_cl(cl,jobcode,outname:utf8string); //control command line size then launch cl
+/// <summary>Interface to allow for post-extraction tasks that need information
+/// or configuration in pre-extraction steps to be encapsulated and executed
+///once the extraction (run in its own thread) is complete.
+/// </summary>
+type
+IPostExtractionCallback = interface
+procedure Execute;
+end;
+
+procedure launch_cl(cl,jobcode,outname:utf8string; callback: IPostExtractionCallback); //control command line size then launch cl
 var
    P: TProcess;
    tsin,tsout:TTimeStamp;
@@ -27932,6 +27941,12 @@ var
    s:=s+char($0d)+char($0a)+' - '+txt_elapsed+' '+inttostr(tdiff)+' ms';
    if speed>0 then s:=s+', '+txt_speed+' '+inttostr(speed)+' B/s';
    decode_7za_exitcode(P.ExitStatus,insize,cl,s,outname);
+
+   // Execute the callback if it exists.
+   if callback <> nil then
+      begin
+      callback.Execute;
+      end;
    end;
 
 begin
@@ -27999,6 +28014,17 @@ else //launch either or pealauncher or ConsoleCreate application, depending on r
          end
       else{$ENDIF} P.Execute;
       inputfile:='';
+
+      // Wait for extraction to finish before running the post extraction callback.
+      while P.Running do
+         begin
+         sleep(100);
+         end;
+      // Execute the callback if it exists.
+      if callback <> nil then
+         begin
+         callback.Execute;
+         end;
       end
    else
       begin
@@ -28009,6 +28035,14 @@ else //launch either or pealauncher or ConsoleCreate application, depending on r
 zaout:=zaout1;
 //sleep(500);
 P.Free;
+end;
+
+///<summary>Adapts calls to legacy version of launch_cl that don't include the
+/// callback object.
+///</summary>
+procedure launch_cl(cl, jobcode, outname: utf8string);
+begin
+   launch_cl(cl, jobcode, outname, IPostExtractionCallback(nil));
 end;
 
 function archive_mainsequence(var sel:utf8string):integer;
@@ -29383,7 +29417,7 @@ else if zaout>0 then pw:='-pdefault';
 directask_pwkeyfile_context:=0;
 end;
 
-procedure directextractfromname(var in_param,out_param:utf8string);
+procedure directextractfromname(var in_param,out_param:utf8string; callback: IPostExtractionCallback);
 var
    j,ec:integer;
    P:TProcess;
@@ -29631,20 +29665,19 @@ begin
          cl:=cl+' '+out_param;
          cl:=cl+' '+pw;
          cl:=cl+' '+in_param;
-         launch_cl(cl,jobcode,outname);
+         launch_cl(cl,jobcode,outname,callback);
          end;
       end;
 end;
 
-/// <summary>Implementing this interface allows for post-extraction tasks that
-/// need information or configuration in pre-extraction steps to be encapsulated
-/// and executed once the extraction (run in its own thread) is complete.
-/// </summary>
-type
-IPostExtractionCallback = interface
-procedure Execute;
+/// <summary>Adapts legacy calls to this procedure that omit the
+/// IPostExtractionCallback object.</summary>
+procedure directextractfromname(var in_param, out_param: utf8string);
+begin
+   directextractfromname(in_param, out_param, IPostExtractionCallback(nil));
 end;
 
+type
 TIntermediateDirectoryNormalizer = class(TInterfacedObject,
                                          IPostExtractionCallback)
 private
@@ -29823,6 +29856,8 @@ for i:=2 to paramcount do
    if folderoption='newfolder' then
       begin
       Form_peach.CheckBoxFolder.State:=cbChecked;
+      // Checks for intermediate directory and moves content up a level if
+      // necessary.
       IDNormalizer := TIntermediateDirectoryNormalizer.Create;
       intermediatedirtest_target := out_param;
       // Get the final output folder. This creates an empty directory, delete
@@ -29837,13 +29872,7 @@ for i:=2 to paramcount do
       end;
    if out_param<>'' then if out_param[length(out_param)]<>directoryseparator then out_param:=out_param+directoryseparator;
    //end determination of out_param
-   directextractfromname(in_param,out_param);
-   // Check for intermediate directory and move content up a level if necessary
-   // in newfolder mode.
-   if folderoption = 'newfolder' then
-      begin
-      IDNormalizer.Execute;
-      end;
+   directextractfromname(in_param,out_param, IDNormalizer);
    1:
    end;
 if nf=true then Form_peach.CheckBoxFolder.State:=cbChecked else Form_peach.CheckBoxFolder.State:=cbUnChecked;
