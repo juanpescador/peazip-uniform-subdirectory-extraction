@@ -1,6 +1,14 @@
 # PeaZip with force single directory level extract #
 
-This version of PeaZip allows you to right click on any archive → PeaZip → "Extract here (new folder)" and be sure that only one subdirectory will be created, with the archive's content contained inside it.
+This version of [PeaZip][1] allows you to right click on any archive → PeaZip → "Extract here (new folder)" and be sure that only one subdirectory will be created, with the archive's content contained inside it.
+
+Original extract behaviour:
+
+![Original extract behaviour](/img/intermediate-subdirectory-extract.gif?raw=true "Original extract behaviour")
+
+Uniform subdirectory extract:
+
+![Uniform extract behaviour](/img/uniform-subdirectory-extract.gif?raw=true "Uniform extract behaviour")
 
 This is useful because there are two main ways that archives are packaged:
 
@@ -37,4 +45,6 @@ Then "Extract here (new folder)" will result in the following structure:
       │   └ File1.txt
       └  ArchiveType2.zip
 
-This version of PeaZip ensures the unnecessary intermedate directory is never created.
+This intermedate directory is deleted with its contents being moved up a level, resulting in the same structure as for ArchiveType1.
+
+[1]: https://github.com/giorgiotani/PeaZip
